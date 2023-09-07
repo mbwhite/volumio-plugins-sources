@@ -6,9 +6,10 @@ var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
 var execSync = require('child_process').execSync;
 
+const MPR121 = require('lib/mpr121.js');
 
-module.exports = touchButtons;
-function touchButtons(context) {
+module.exports = TouchButtons;
+function TouchButtons(context) {
 	var self = this;
 
 	this.context = context;
@@ -20,17 +21,23 @@ function touchButtons(context) {
 
 
 
-touchButtons.prototype.onVolumioStart = function()
+TouchButtons.prototype.onVolumioStart = function()
 {
 	var self = this;
 	var configFile=this.commandRouter.pluginManager.getConfigurationFile(this.context,'config.json');
 	this.config = new (require('v-conf'))();
 	this.config.loadFile(configFile);
 
+	this.mpr121  = new MPR121(0x5A, 1);
+
+	mpr121.on('touch', (pin) => {
+		this.logger.info(`pin ${pin} touched`);
+	});
+
     return libQ.resolve();
 }
 
-touchButtons.prototype.onStart = function() {
+TouchButtons.prototype.onStart = function() {
     var self = this;
 	var defer=libQ.defer();
 
@@ -41,7 +48,7 @@ touchButtons.prototype.onStart = function() {
     return defer.promise;
 };
 
-touchButtons.prototype.onStop = function() {
+TouchButtons.prototype.onStop = function() {
     var self = this;
     var defer=libQ.defer();
 
@@ -51,7 +58,7 @@ touchButtons.prototype.onStop = function() {
     return libQ.resolve();
 };
 
-touchButtons.prototype.onRestart = function() {
+TouchButtons.prototype.onRestart = function() {
     var self = this;
     // Optional, use if you need it
 };
@@ -59,7 +66,7 @@ touchButtons.prototype.onRestart = function() {
 
 // Configuration Methods -----------------------------------------------------------------------------
 
-touchButtons.prototype.getUIConfig = function() {
+TouchButtons.prototype.getUIConfig = function() {
     var defer = libQ.defer();
     var self = this;
 
@@ -82,21 +89,21 @@ touchButtons.prototype.getUIConfig = function() {
     return defer.promise;
 };
 
-touchButtons.prototype.getConfigurationFiles = function() {
+TouchButtons.prototype.getConfigurationFiles = function() {
 	return ['config.json'];
 }
 
-touchButtons.prototype.setUIConfig = function(data) {
+TouchButtons.prototype.setUIConfig = function(data) {
 	var self = this;
 	//Perform your installation tasks here
 };
 
-touchButtons.prototype.getConf = function(varName) {
+TouchButtons.prototype.getConf = function(varName) {
 	var self = this;
 	//Perform your installation tasks here
 };
 
-touchButtons.prototype.setConf = function(varName, varValue) {
+TouchButtons.prototype.setConf = function(varName, varValue) {
 	var self = this;
 	//Perform your installation tasks here
 };
@@ -107,14 +114,14 @@ touchButtons.prototype.setConf = function(varName, varValue) {
 // If your plugin is not a music_sevice don't use this part and delete it
 
 
-touchButtons.prototype.addToBrowseSources = function () {
+TouchButtons.prototype.addToBrowseSources = function () {
 
 	// Use this function to add your music service plugin to music sources
     //var data = {name: 'Spotify', uri: 'spotify',plugin_type:'music_service',plugin_name:'spop'};
     this.commandRouter.volumioAddToBrowseSources(data);
 };
 
-touchButtons.prototype.handleBrowseUri = function (curUri) {
+TouchButtons.prototype.handleBrowseUri = function (curUri) {
     var self = this;
 
     //self.commandRouter.logger.info(curUri);
@@ -127,63 +134,63 @@ touchButtons.prototype.handleBrowseUri = function (curUri) {
 
 
 // Define a method to clear, add, and play an array of tracks
-touchButtons.prototype.clearAddPlayTrack = function(track) {
+TouchButtons.prototype.clearAddPlayTrack = function(track) {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::clearAddPlayTrack');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::clearAddPlayTrack');
 
 	self.commandRouter.logger.info(JSON.stringify(track));
 
 	return self.sendSpopCommand('uplay', [track.uri]);
 };
 
-touchButtons.prototype.seek = function (timepos) {
-    this.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::seek to ' + timepos);
+TouchButtons.prototype.seek = function (timepos) {
+    this.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::seek to ' + timepos);
 
     return this.sendSpopCommand('seek '+timepos, []);
 };
 
 // Stop
-touchButtons.prototype.stop = function() {
+TouchButtons.prototype.stop = function() {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::stop');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::stop');
 
 
 };
 
 // Spop pause
-touchButtons.prototype.pause = function() {
+TouchButtons.prototype.pause = function() {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::pause');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::pause');
 
 
 };
 
 // Get state
-touchButtons.prototype.getState = function() {
+TouchButtons.prototype.getState = function() {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::getState');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::getState');
 
 
 };
 
 //Parse state
-touchButtons.prototype.parseState = function(sState) {
+TouchButtons.prototype.parseState = function(sState) {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::parseState');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::parseState');
 
 	//Use this method to parse the state and eventually send it with the following function
 };
 
 // Announce updated State
-touchButtons.prototype.pushState = function(state) {
+TouchButtons.prototype.pushState = function(state) {
 	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'touchButtons::pushState');
+	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::pushState');
 
 	return self.commandRouter.servicePushState(state, self.servicename);
 };
 
 
-touchButtons.prototype.explodeUri = function(uri) {
+TouchButtons.prototype.explodeUri = function(uri) {
 	var self = this;
 	var defer=libQ.defer();
 
@@ -192,7 +199,7 @@ touchButtons.prototype.explodeUri = function(uri) {
 	return defer.promise;
 };
 
-touchButtons.prototype.getAlbumArt = function (data, path) {
+TouchButtons.prototype.getAlbumArt = function (data, path) {
 
 	var artist, album;
 
@@ -231,7 +238,7 @@ touchButtons.prototype.getAlbumArt = function (data, path) {
 
 
 
-touchButtons.prototype.search = function (query) {
+TouchButtons.prototype.search = function (query) {
 	var self=this;
 	var defer=libQ.defer();
 
@@ -240,24 +247,24 @@ touchButtons.prototype.search = function (query) {
 	return defer.promise;
 };
 
-touchButtons.prototype._searchArtists = function (results) {
+TouchButtons.prototype._searchArtists = function (results) {
 
 };
 
-touchButtons.prototype._searchAlbums = function (results) {
+TouchButtons.prototype._searchAlbums = function (results) {
 
 };
 
-touchButtons.prototype._searchPlaylists = function (results) {
+TouchButtons.prototype._searchPlaylists = function (results) {
 
 
 };
 
-touchButtons.prototype._searchTracks = function (results) {
+TouchButtons.prototype._searchTracks = function (results) {
 
 };
 
-touchButtons.prototype.goto=function(data){
+TouchButtons.prototype.goto=function(data){
     var self=this
     var defer=libQ.defer()
 
