@@ -6,7 +6,7 @@ var config = new (require('v-conf'))();
 var exec = require('child_process').exec;
 var execSync = require('child_process').execSync;
 
-const MPR121 = require('lib/mpr121.js');
+const MPR121 = require('./lib/mpr121.js');
 
 module.exports = TouchButtons;
 function TouchButtons(context) {
@@ -30,7 +30,7 @@ TouchButtons.prototype.onVolumioStart = function()
 
 	this.mpr121  = new MPR121(0x5A, 1);
 
-	mpr121.on('touch', (pin) => {
+	this.mpr121.on('touch', (pin) => {
 		this.logger.info(`pin ${pin} touched`);
 	});
 
