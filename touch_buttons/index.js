@@ -1,274 +1,223 @@
 'use strict';
 
 var libQ = require('kew');
-var fs=require('fs-extra');
-var config = new (require('v-conf'))();
-var exec = require('child_process').exec;
-var execSync = require('child_process').execSync;
-
 const MPR121 = require('./lib/mpr121.js');
+var io = require('socket.io-client');
+var socket = io.connect('http://localhost:3000');
+var actions = ["playPause", "previous", "next", "shutdown","radio","spotify"];
 
-module.exports = TouchButtons;
 function TouchButtons(context) {
-	var self = this;
-
-	this.context = context;
-	this.commandRouter = this.context.coreCommand;
-	this.logger = this.context.logger;
-	this.configManager = this.context.configManager;
-
-}
-
-
-
-TouchButtons.prototype.onVolumioStart = function()
-{
-	var self = this;
-	var configFile=this.commandRouter.pluginManager.getConfigurationFile(this.context,'config.json');
-	this.config = new (require('v-conf'))();
-	this.config.loadFile(configFile);
-
-	this.mpr121  = new MPR121(0x5A, 1);
-
-	this.mpr121.on('touch', (pin) => {
-		this.logger.info(`pin ${pin} touched`);
-	});
-
-    return libQ.resolve();
-}
-
-TouchButtons.prototype.onStart = function() {
     var self = this;
+    self.context = context;
+    self.commandRouter = self.context.coreCommand;
+    self.logger = self.context.logger;
+    self.triggers = [];
+
+}
+
+TouchButtons.prototype.onVolumioStart = function () {
+    var self = this;
+    console.log("Hello 2");
+
+    var configFile = this.commandRouter.pluginManager.getConfigurationFile(this.context, 'config.json');
+    self.config = new (require('v-conf'))();
+    self.config.loadFile(configFile);
+    self.mpr121 = new MPR121(0x5A, 1);
+
+    self.logger.info("Touch-Buttons initialized");
+    return libQ.resolve();
+};
+
+TouchButtons.prototype.getConfigurationFiles = function()
+{
+	return ['config.json'];
+};
+
+TouchButtons.prototype.onStart = function () {
+	var self = this;
 	var defer=libQ.defer();
 
-
-	// Once the Plugin has successfull started resolve the promise
-	defer.resolve();
-
+	self.createTriggers()
+		.then (function (result) {
+			self.logger.info("Touch-Buttons started");
+			defer.resolve();
+		});
+	
     return defer.promise;
 };
 
-TouchButtons.prototype.onStop = function() {
-    var self = this;
-    var defer=libQ.defer();
+TouchButtons.prototype.onStop = function () {
+	var self = this;
+	var defer=libQ.defer();
 
-    // Once the Plugin has successfull stopped resolve the promise
-    defer.resolve();
-
-    return libQ.resolve();
+	self.clearTriggers()
+		.then (function (result) {
+			self.logger.info("GPIO-Buttons stopped");
+			defer.resolve();
+		});
+	
+    return defer.promise;
 };
 
-TouchButtons.prototype.onRestart = function() {
-    var self = this;
-    // Optional, use if you need it
+TouchButtons.prototype.getConf = function (varName) {
+	var self = this;
 };
 
+TouchButtons.prototype.setConf = function(varName, varValue) {
+	var self = this;
+};
 
-// Configuration Methods -----------------------------------------------------------------------------
+TouchButtons.prototype.getAdditionalConf = function (type, controller, data) {
+	var self = this;
+};
 
-TouchButtons.prototype.getUIConfig = function() {
-    var defer = libQ.defer();
-    var self = this;
+TouchButtons.prototype.setAdditionalConf = function () {
+	var self = this;
+};
 
-    var lang_code = this.commandRouter.sharedVars.get('language_code');
+TouchButtons.prototype.setUIConfig = function (data) {
+	var self = this;
+};
+TouchButtons.prototype.onRestart = function () {
+	var self = this;
+};
 
-    self.commandRouter.i18nJson(__dirname+'/i18n/strings_'+lang_code+'.json',
-        __dirname+'/i18n/strings_en.json',
-        __dirname + '/UIConfig.json')
+TouchButtons.prototype.onInstall = function () {
+	var self = this;
+};
+
+TouchButtons.prototype.onUninstall = function () {
+	var self = this;
+};
+
+TouchButtons.prototype.getUIConfig = function () {
+	var defer = libQ.defer();
+	var self = this;
+
+	self.logger.info('Touch-Buttons: Getting UI config');
+
+	//Just for now..
+	var lang_code = 'en';
+
+	//var lang_code = this.commandRouter.sharedVars.get('language_code');
+
+        self.commandRouter.i18nJson(__dirname+'/i18n/strings_'+lang_code+'.json',
+                __dirname+'/i18n/strings_en.json',
+                __dirname + '/UIConfig.json')
         .then(function(uiconf)
         {
 
+			var i = 0;
+			actions.forEach(function(action, index, array) {
+ 				
+ 				// Strings for config
+				var c1 = action.concat('.enabled');
+				var c2 = action.concat('.pin');
+				
+				// accessor supposes actions and uiconfig items are in SAME order
+				// this is potentially dangerous: rewrite with a JSON search of "id" value ?				
+				uiconf.sections[0].content[2*i].value = self.config.get(c1);
+				uiconf.sections[0].content[2*i+1].value.value = self.config.get(c2);
+				uiconf.sections[0].content[2*i+1].value.label = self.config.get(c2).toString();
+
+				i = i + 1;
+			});
 
             defer.resolve(uiconf);
-        })
+		})
         .fail(function()
         {
             defer.reject(new Error());
         });
 
-    return defer.promise;
+        return defer.promise;
 };
 
-TouchButtons.prototype.getConfigurationFiles = function() {
-	return ['config.json'];
-}
 
-TouchButtons.prototype.setUIConfig = function(data) {
+TouchButtons.prototype.saveConfig = function(data)
+{
 	var self = this;
-	//Perform your installation tasks here
+
+	actions.forEach(function(action, index, array) {
+ 		// Strings for data fields
+		var s1 = action.concat('Enabled');
+		var s2 = action.concat('Pin');
+
+		// Strings for config
+		var c1 = action.concat('.enabled');
+		var c2 = action.concat('.pin');
+		var c3 = action.concat('.value');
+
+		self.config.set(c1, data[s1]);
+		self.config.set(c2, data[s2]['value']);
+		self.config.set(c3, 0);
+	});
+
+	self.clearTriggers()
+		.then(self.createTriggers());
+
+	self.commandRouter.pushToastMessage('success',"GPIO-Buttons", "Configuration saved");
 };
 
-TouchButtons.prototype.getConf = function(varName) {
+TouchButtons.prototype.clearTriggers = function () {
 	var self = this;
-	//Perform your installation tasks here
+	
+	self.triggers.forEach(function(trigger, index, array) {
+  		self.logger.info("GPIO-Buttons: Destroying trigger " + index);
+
+		trigger.unwatchAll();
+		trigger.unexport();		
+	});
+	
+	self.triggers = [];
+
+	return libQ.resolve();	
 };
 
-TouchButtons.prototype.setConf = function(varName, varValue) {
+
+TouchButtons.prototype.createTriggers = function() {
 	var self = this;
-	//Perform your installation tasks here
+
+	self.logger.info('Touch-Buttons: Reading config and creating triggers...');
+
+	actions.forEach(function(action, index, array) {
+		var c1 = action.concat('.enabled');
+		var c2 = action.concat('.pin');
+
+		var enabled = self.config.get(c1);
+		var pin = self.config.get(c2);
+
+		if(enabled === true){
+			self.logger.info('GPIO-Buttons: '+ action + ' on pin ' + pin);
+		
+            this.mpr121.on('touch', (pin) => {
+                this.logger.info(`pin ${pin} touched`);
+                });
+        
+            // var j = new Gpio(pin,'in','both');
+			j.watch(self.listener.bind(self,action));
+			self.triggers.push(j);
+		}
+	});
+		
+	return libQ.resolve();
 };
 
 
 
-// Playback Controls ---------------------------------------------------------------------------------------
-// If your plugin is not a music_sevice don't use this part and delete it
-
-
-TouchButtons.prototype.addToBrowseSources = function () {
-
-	// Use this function to add your music service plugin to music sources
-    //var data = {name: 'Spotify', uri: 'spotify',plugin_type:'music_service',plugin_name:'spop'};
-    this.commandRouter.volumioAddToBrowseSources(data);
-};
-
-TouchButtons.prototype.handleBrowseUri = function (curUri) {
+TouchButtons.prototype.listener = function (action, err, value) {
     var self = this;
 
-    //self.commandRouter.logger.info(curUri);
-    var response;
+    var c3 = action.concat('.value');
+    var lastvalue = self.config.get(c3);
 
-
-    return response;
+    // IF change AND high (or low?)
+    if (value !== lastvalue && value === 1) {
+        //do thing
+        self[action]();
+    }
+    // remember value
+    self.config.set(c3, value);
 };
 
-
-
-// Define a method to clear, add, and play an array of tracks
-TouchButtons.prototype.clearAddPlayTrack = function(track) {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::clearAddPlayTrack');
-
-	self.commandRouter.logger.info(JSON.stringify(track));
-
-	return self.sendSpopCommand('uplay', [track.uri]);
-};
-
-TouchButtons.prototype.seek = function (timepos) {
-    this.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::seek to ' + timepos);
-
-    return this.sendSpopCommand('seek '+timepos, []);
-};
-
-// Stop
-TouchButtons.prototype.stop = function() {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::stop');
-
-
-};
-
-// Spop pause
-TouchButtons.prototype.pause = function() {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::pause');
-
-
-};
-
-// Get state
-TouchButtons.prototype.getState = function() {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::getState');
-
-
-};
-
-//Parse state
-TouchButtons.prototype.parseState = function(sState) {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::parseState');
-
-	//Use this method to parse the state and eventually send it with the following function
-};
-
-// Announce updated State
-TouchButtons.prototype.pushState = function(state) {
-	var self = this;
-	self.commandRouter.pushConsoleMessage('[' + Date.now() + '] ' + 'TouchButtons::pushState');
-
-	return self.commandRouter.servicePushState(state, self.servicename);
-};
-
-
-TouchButtons.prototype.explodeUri = function(uri) {
-	var self = this;
-	var defer=libQ.defer();
-
-	// Mandatory: retrieve all info for a given URI
-
-	return defer.promise;
-};
-
-TouchButtons.prototype.getAlbumArt = function (data, path) {
-
-	var artist, album;
-
-	if (data != undefined && data.path != undefined) {
-		path = data.path;
-	}
-
-	var web;
-
-	if (data != undefined && data.artist != undefined) {
-		artist = data.artist;
-		if (data.album != undefined)
-			album = data.album;
-		else album = data.artist;
-
-		web = '?web=' + nodetools.urlEncode(artist) + '/' + nodetools.urlEncode(album) + '/large'
-	}
-
-	var url = '/albumart';
-
-	if (web != undefined)
-		url = url + web;
-
-	if (web != undefined && path != undefined)
-		url = url + '&';
-	else if (path != undefined)
-		url = url + '?';
-
-	if (path != undefined)
-		url = url + 'path=' + nodetools.urlEncode(path);
-
-	return url;
-};
-
-
-
-
-
-TouchButtons.prototype.search = function (query) {
-	var self=this;
-	var defer=libQ.defer();
-
-	// Mandatory, search. You can divide the search in sections using following functions
-
-	return defer.promise;
-};
-
-TouchButtons.prototype._searchArtists = function (results) {
-
-};
-
-TouchButtons.prototype._searchAlbums = function (results) {
-
-};
-
-TouchButtons.prototype._searchPlaylists = function (results) {
-
-
-};
-
-TouchButtons.prototype._searchTracks = function (results) {
-
-};
-
-TouchButtons.prototype.goto=function(data){
-    var self=this
-    var defer=libQ.defer()
-
-// Handle go to artist and go to album function
-
-     return defer.promise;
-};
+module.exports = TouchButtons;
