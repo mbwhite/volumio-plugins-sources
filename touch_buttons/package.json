@@ -29,7 +29,7 @@
 		"volumio": ">=3.512.0 <4.0.0"
 	},
 	"dependencies": {
-		"fs-extra": "^0.28.0",
+		"fs-extra": "^5.0.0",
 		"i2c-bus": "^5.2.3",
 		"kew": "^0.7.0",
 		"socket.io-client": "^4.7.2",

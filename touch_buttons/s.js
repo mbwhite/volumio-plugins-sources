@@ -1,4 +1,4 @@
-const MPR121 = require('./i.js');
+const MPR121 = require('./mpr121.js');
 
 mpr121  = new MPR121(0x5A, 1);
 
